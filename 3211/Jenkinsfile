@@ -53,14 +53,26 @@ pipeline {
             }
         }
 
-        stage('컨테이너 업로드') {
-            steps {
-                // DockerHub로 이미지 업로드
-                script{
-                    sh "docker push ${DOCKERHUB_USERNAME}/api-tester:${APP_VERSION}"
-                }
-            }
-        }
+		stage('컨테이너 업로드') {
+    		steps {
+        		withCredentials([usernamePassword(
+            		credentialsId: 'docker_password',
+            		usernameVariable: 'DOCKERHUB_LOGIN',
+            		passwordVariable: 'DOCKERHUB_TOKEN'
+        		)]) {
+            		sh '''
+                		set +x
+                		export DOCKER_CONFIG="$(mktemp -d)"
+                		trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+
+		                printf '%s' "$DOCKERHUB_TOKEN" |
+        		            docker login --username "$DOCKERHUB_LOGIN" --password-stdin
+		
+        		        docker push "$DOCKERHUB_USERNAME/api-tester:$APP_VERSION"
+           		 '''
+		        }
+    		}
+		}
 
         stage('쿠버네티스 배포') {
             steps {
